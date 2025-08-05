@@ -1,0 +1,142 @@
+<html>
+<head>
+  <title>Job Application Tracker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="p-4 bg-gray-50 min-h-screen">
+  <!-- Navigation -->
+  <nav class="flex mb-6 rounded overflow-hidden shadow">
+    <button id="jobTab" class="flex-1 py-2 px-4 bg-blue-500 text-white font-semibold focus:outline-none transition-colors">Job</button>
+    <button id="followUpTab" class="flex-1 py-2 px-4 bg-white text-blue-500 font-semibold focus:outline-none transition-colors">Follow Up</button>
+  </nav>
+
+  <!-- Job Form Section -->
+  <section id="jobSection">
+    <h1 class="text-xl font-bold mb-4">Add Job Application</h1>
+    <form id="jobForm" class="space-y-3 bg-white p-4 rounded shadow">
+      <input type="text" placeholder="Company Name" id="company" class="w-full border p-2 rounded" required>
+      <input type="text" placeholder="Job Role" id="role" class="w-full border p-2 rounded" required>
+      <input type="text" placeholder="Resume Filename" id="resume" class="w-full border p-2 rounded">
+      <input type="date" id="date" class="w-full border p-2 rounded">
+
+      <div class="flex items-center space-x-2">
+        <label>Interviewed?</label>
+        <input type="checkbox" id="interview">
+      </div>
+      <div class="flex items-center space-x-2">
+        <label>Offer?</label>
+        <input type="checkbox" id="offer">
+      </div>
+      <div class="flex items-center space-x-2">
+        <label>Got Job?</label>
+        <input type="checkbox" id="gotJob">
+      </div>
+
+      <label for="mood">Mood:</label>
+      <select id="mood" class="w-full border p-2 rounded">
+        <option>🙂</option>
+        <option>😐</option>
+        <option>☹️</option>
+      </select>
+
+      <button type="submit" class="bg-blue-500 w-full text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit</button>
+    </form>
+  </section>
+
+  <!-- Follow Up Section -->
+  <section id="followUpSection" class="hidden">
+    <h1 class="text-xl font-bold mb-4">Follow Up</h1>
+    <div class="overflow-x-auto">
+      <table class="min-w-max w-full table-auto bg-white rounded shadow">
+        <thead>
+          <tr class="bg-blue-100 text-blue-700">
+            <th class="py-2 px-4">Company</th>
+            <th class="py-2 px-4">Role</th>
+            <th class="py-2 px-4">Date</th>
+            <th class="py-2 px-4">Interviewed</th>
+            <th class="py-2 px-4">Offer</th>
+            <th class="py-2 px-4">Got Job</th>
+            <th class="py-2 px-4">Mood</th>
+            <th class="py-2 px-4">Follow Ups</th>
+          </tr>
+        </thead>
+        <tbody id="jobsTableBody">
+          <!-- Jobs will be dynamically inserted here -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="sidepanel.js"></script>
+  <script>
+    // Tab switching logic
+    const jobTab = document.getElementById('jobTab');
+    const followUpTab = document.getElementById('followUpTab');
+    const jobSection = document.getElementById('jobSection');
+    const followUpSection = document.getElementById('followUpSection');
+
+    jobTab.addEventListener('click', () => {
+      jobSection.classList.remove('hidden');
+      followUpSection.classList.add('hidden');
+      jobTab.classList.add('bg-blue-500', 'text-white');
+      jobTab.classList.remove('bg-white', 'text-blue-500');
+      followUpTab.classList.remove('bg-blue-500', 'text-white');
+      followUpTab.classList.add('bg-white', 'text-blue-500');
+    });
+
+    followUpTab.addEventListener('click', () => {
+      jobSection.classList.add('hidden');
+      followUpSection.classList.remove('hidden');
+      followUpTab.classList.add('bg-blue-500', 'text-white');
+      followUpTab.classList.remove('bg-white', 'text-blue-500');
+      jobTab.classList.remove('bg-blue-500', 'text-white');
+      jobTab.classList.add('bg-white', 'text-blue-500');
+    });
+
+    // Example: Populate table with dummy data (replace with real data logic)
+    const jobs = [
+      {
+        company: "Acme Corp",
+        role: "Frontend Developer",
+        date: "2025-08-01",
+        interviewed: true,
+        offer: false,
+        gotJob: false,
+        mood: "🙂",
+        followUps: 2
+      },
+      {
+        company: "Beta Inc",
+        role: "Backend Engineer",
+        date: "2025-07-28",
+        interviewed: false,
+        offer: false,
+        gotJob: false,
+        mood: "😐",
+        followUps: 1
+      }
+    ];
+
+    function renderJobsTable() {
+      const tbody = document.getElementById('jobsTableBody');
+      tbody.innerHTML = '';
+      jobs.forEach(job => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="border px-4 py-2">${job.company}</td>
+          <td class="border px-4 py-2">${job.role}</td>
+          <td class="border px-4 py-2">${job.date}</td>
+          <td class="border px-4 py-2 text-center">${job.interviewed ? '✅' : '❌'}</td>
+          <td class="border px-4 py-2 text-center">${job.offer ? '✅' : '❌'}</td>
+          <td class="border px-4 py-2 text-center">${job.gotJob ? '✅' : '❌'}</td>
+          <td class="border px-4 py-2 text-center">${job.mood}</td>
+          <td class="border px-4 py-2 text-center">${job.followUps}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderJobsTable();
+  </script>
+</body>
+</html>
