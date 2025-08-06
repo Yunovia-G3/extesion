@@ -2,6 +2,11 @@ const SUPABASE_URL = 'https://aofvzgqksbhgljzowyby.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZnZ6Z3Frc2JoZ2xqem93eWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0MzAxMTEsImV4cCI6MjA3MDAwNjExMX0.XA4xgMqrMy9finlY9xvOhPdrQIsKYlRGmrNx_1D6db4';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Offline queue and local storage functions
+const OFFLINE_QUEUE_KEY = 'offline_job_queue';
+const LOCAL_JOBS_KEY = 'local_jobs';
+
+
 // Tab switching logic
 const jobTab = document.getElementById('jobTab');
 const followUpTab = document.getElementById('followUpTab');
@@ -335,9 +340,7 @@ async function updateJobField(id, field, value) {
 
 
 
-// Offline queue and local storage functions
-const OFFLINE_QUEUE_KEY = 'offline_job_queue';
-const LOCAL_JOBS_KEY = 'local_jobs';
+
 
 // Check online status
 function isOnline() {
