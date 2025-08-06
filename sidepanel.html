@@ -34,10 +34,11 @@
 
       <label for="mood">Mood:</label>
       <select id="mood" class="w-full border p-2 rounded">
-        <option>🙂</option>
-        <option>😐</option>
-        <option>☹️</option>
-      </select>
+  <option value="happy">😊 Happy</option>
+  <option value="sad">😢 Sad</option>
+  <option value="angry">😠 Angry</option>
+  <option value="neutral">😐 Neutral</option>
+</select>
 
       <button type="submit" class="bg-blue-500 w-full text-white px-4 py-2 rounded hover:bg-blue-600 transition">Submit</button>
     </form>
@@ -66,77 +67,15 @@
       </table>
     </div>
   </section>
-
+  <!-- ...existing code... -->
+<div class="mt-6">
+  <h2 class="text-sm font-semibold mb-2">Applications per Day</h2>
+  <canvas id="jobsPerDayChart" height="80"></canvas>
+</div>
+<script src="./lib/chart.min.js"></script>
+<!-- ...existing code... -->
+<script src="./lib/supabase.min.js"></script>
   <script src="sidepanel.js"></script>
-  <script>
-    // Tab switching logic
-    const jobTab = document.getElementById('jobTab');
-    const followUpTab = document.getElementById('followUpTab');
-    const jobSection = document.getElementById('jobSection');
-    const followUpSection = document.getElementById('followUpSection');
-
-    jobTab.addEventListener('click', () => {
-      jobSection.classList.remove('hidden');
-      followUpSection.classList.add('hidden');
-      jobTab.classList.add('bg-blue-500', 'text-white');
-      jobTab.classList.remove('bg-white', 'text-blue-500');
-      followUpTab.classList.remove('bg-blue-500', 'text-white');
-      followUpTab.classList.add('bg-white', 'text-blue-500');
-    });
-
-    followUpTab.addEventListener('click', () => {
-      jobSection.classList.add('hidden');
-      followUpSection.classList.remove('hidden');
-      followUpTab.classList.add('bg-blue-500', 'text-white');
-      followUpTab.classList.remove('bg-white', 'text-blue-500');
-      jobTab.classList.remove('bg-blue-500', 'text-white');
-      jobTab.classList.add('bg-white', 'text-blue-500');
-    });
-
-    // Example: Populate table with dummy data (replace with real data logic)
-    const jobs = [
-      {
-        company: "Acme Corp",
-        role: "Frontend Developer",
-        date: "2025-08-01",
-        interviewed: true,
-        offer: false,
-        gotJob: false,
-        mood: "🙂",
-        followUps: 2
-      },
-      {
-        company: "Beta Inc",
-        role: "Backend Engineer",
-        date: "2025-07-28",
-        interviewed: false,
-        offer: false,
-        gotJob: false,
-        mood: "😐",
-        followUps: 1
-      }
-    ];
-
-    function renderJobsTable() {
-      const tbody = document.getElementById('jobsTableBody');
-      tbody.innerHTML = '';
-      jobs.forEach(job => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="border px-4 py-2">${job.company}</td>
-          <td class="border px-4 py-2">${job.role}</td>
-          <td class="border px-4 py-2">${job.date}</td>
-          <td class="border px-4 py-2 text-center">${job.interviewed ? '✅' : '❌'}</td>
-          <td class="border px-4 py-2 text-center">${job.offer ? '✅' : '❌'}</td>
-          <td class="border px-4 py-2 text-center">${job.gotJob ? '✅' : '❌'}</td>
-          <td class="border px-4 py-2 text-center">${job.mood}</td>
-          <td class="border px-4 py-2 text-center">${job.followUps}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    renderJobsTable();
-  </script>
+  
 </body>
 </html>
