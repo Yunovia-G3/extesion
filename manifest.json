@@ -3,7 +3,12 @@
   "name": "Job Application Tracker",
   "version": "1.0",
   "description": "Track your job applications and analyze progress.",
-  "permissions": ["storage", "sidePanel", "identity"],
+   "permissions": [
+    "storage",
+    "sidePanel",
+    "identity",
+    "unlimitedStorage"
+  ],
   "action": {
     "default_popup": "popup.html"
   },
@@ -13,6 +18,9 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
-  
+  "web_accessible_resources": [{
+    "resources": ["pdfjs/*"],
+    "matches": ["<all_urls>"]
+  }],
   "host_permissions": ["<all_urls>"]
 }
