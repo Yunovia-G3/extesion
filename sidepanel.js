@@ -1,52 +1,279 @@
+// Supabase initialization
 const SUPABASE_URL = 'https://aofvzgqksbhgljzowyby.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZnZ6Z3Frc2JoZ2xqem93eWJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0MzAxMTEsImV4cCI6MjA3MDAwNjExMX0.XA4xgMqrMy9finlY9xvOhPdrQIsKYlRGmrNx_1D6db4';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Offline queue and local storage functions
-const OFFLINE_QUEUE_KEY = 'offline_job_queue';
-const LOCAL_JOBS_KEY = 'local_jobs';
+// DOM Elements
+const authContainer = document.getElementById('authContainer');
+const loginPage = document.getElementById('loginPage');
+const signupPage = document.getElementById('signupPage');
+const loginForm = document.getElementById('loginForm');
+const signupForm = document.getElementById('signupForm');
+const showSignUp = document.getElementById('showSignUp');
+const showLogin = document.getElementById('showLogin');
+const appContent = document.getElementById('appContent');
+const logoutBtn = document.getElementById('logoutBtn');
 
-
-// Tab switching logic
 const jobTab = document.getElementById('jobTab');
 const followUpTab = document.getElementById('followUpTab');
 const jobSection = document.getElementById('jobSection');
 const followUpSection = document.getElementById('followUpSection');
+const chartSection = document.getElementById('chartSection');
+const today = new Date().toISOString().split('T')[0];
+  document.getElementById('date').value = today;
+ const slider = document.getElementById('expectationSlider');
+  const valueDisplay = document.getElementById('expectationValue');
 
-jobTab.addEventListener('click', () => {
-  jobSection.classList.remove('hidden');
-  followUpSection.classList.add('hidden');
-  jobTab.classList.add('bg-blue-500', 'text-white');
-  jobTab.classList.remove('bg-white', 'text-blue-500');
-  followUpTab.classList.remove('bg-blue-500', 'text-white');
-  followUpTab.classList.add('bg-white', 'text-blue-500');
+  slider.addEventListener('input', () => {
+    valueDisplay.textContent = slider.value;
+  });
+
+// Storage keys
+const OFFLINE_QUEUE_KEY = 'offline_job_queue';
+const LOCAL_JOBS_KEY = 'local_jobs';
+const SESSION_KEY = 'supabase_session';
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+  createProfileSection();
+  initializeApp();
 });
 
-followUpTab.addEventListener('click', () => {
-  jobSection.classList.add('hidden');
-  followUpSection.classList.remove('hidden');
-  followUpTab.classList.add('bg-blue-500', 'text-white');
-  followUpTab.classList.remove('bg-white', 'text-blue-500');
-  jobTab.classList.remove('bg-blue-500', 'text-white');
-  jobTab.classList.add('bg-white', 'text-blue-500');
+async function initializeApp() {
+  setupAuthEventListeners();
+  await checkAuthState();
+  setupJobEventListeners();
+}
+
+function createProfileSection() {
+  const profileSection = document.createElement('div');
+  profileSection.id = 'profileSection';
+  profileSection.className = 'flex items-center justify-between mb-4 p-2 bg-gray-100 rounded';
+
+  profileSection.innerHTML = `
+    <div class ="profile">
+      <div class="prof-initials">
+        ${getInitials('')}
+      </div>
+      <div class="mail">
+        <p id="userEmail" class="text-sm font-medium"></p>
+      </div>
+    </div>
+  `;
+
+  const topNav = document.querySelector('.top-nav');
+topNav.prepend(profileSection);
+}
+const dropArea = document.getElementById('fileDropArea');
+const fileInput = document.getElementById('resumeUpload');
+
+dropArea.addEventListener('click', () => {
+  fileInput.click(); // open file picker on click
 });
 
-// --- JOB FORM SUBMISSION ---
-document.getElementById('jobForm').addEventListener('submit', async function (e) {
+dropArea.addEventListener('dragover', (e) => {
   e.preventDefault();
+  dropArea.classList.add('dragover');
+});
 
-  // Get form values
+dropArea.addEventListener('dragleave', () => {
+  dropArea.classList.remove('dragover');
+});
+
+dropArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropArea.classList.remove('dragover');
+
+  if (e.dataTransfer.files.length > 0) {
+    fileInput.files = e.dataTransfer.files; // update input
+    console.log("File dropped:", fileInput.files[0]);
+  }
+});
+function showFileName(file) {
+  fileNameDisplay.textContent = `📄 Uploaded: ${file.name}`;
+  dropArea.classList.add('uploaded');
+}
+function clearFile() {
+  fileInput.value = "";
+  fileNameDisplay.textContent = "";
+  dropArea.classList.remove('uploaded');
+}
+
+
+function updateProfileSection(email) {
+  const userEmailElement = document.getElementById('userEmail');
+  const initialsElement = document.querySelector('#profileSection div div:first-child');
+
+  if (email) {
+    userEmailElement.textContent = email;
+    initialsElement.textContent = getInitials(email);
+    initialsElement.title = email;
+  } else {
+    userEmailElement.textContent = 'Not logged in';
+    initialsElement.textContent = '?';
+    initialsElement.title = '';
+  }
+}
+
+function getInitials(email) {
+  if (!email) return '?';
+  const parts = email.split('@')[0].split(/[. _-]/);
+  return parts.map(part => part.charAt(0)).join('').toUpperCase().substring(0, 2);
+}
+
+// ================= AUTHENTICATION FUNCTIONS =================
+async function checkAuthState() {
+  const session = await getSession();
+  if (session) {
+    showAppContent();
+    updateProfileSection(session.user.email);
+    renderAll();
+  } else {
+    showAuthPage('login');
+    updateProfileSection(null);
+  }
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN') {
+      storeSession(session);
+      showAppContent();
+      updateProfileSection(session.user.email);
+      renderAll();
+    } else if (event === 'SIGNED_OUT') {
+      clearSession();
+      updateProfileSection(null);
+      showAuthPage('login');
+    }
+  });
+}
+
+function setupAuthEventListeners() {
+  showSignUp.addEventListener('click', (e) => {
+    e.preventDefault();
+    showAuthPage('signup');
+  });
+
+  showLogin.addEventListener('click', (e) => {
+    e.preventDefault();
+    showAuthPage('login');
+  });
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      alert('Login failed: ' + error.message);
+    } else {
+      storeSession(data.session);
+      showAppContent();
+      updateProfileSection(data.user.email);
+      renderAll();
+    }
+  });
+
+  signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signupEmail').value;
+    const password = document.getElementById('signupPassword').value;
+
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      alert('Signup failed: ' + error.message);
+    } else {
+      storeSession(data.session);
+      showAppContent();
+      updateProfileSection(data.user.email);
+      renderAll();
+    }
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    clearSession();
+    showAuthPage('login');
+  });
+}
+
+function showAuthPage(page) {
+  loginPage.style.display = page === 'login' ? 'flex' : 'none';
+  signupPage.style.display = page === 'signup' ? 'flex' : 'none';
+  authContainer.style.display = 'flex';
+  appContent.style.display = 'none';
+}
+
+function showAppContent() {
+  authContainer.style.display = 'none';
+  appContent.style.display = 'flex';
+}
+
+async function getSession() {
+  const sessionData = localStorage.getItem(SESSION_KEY);
+  return sessionData ? JSON.parse(sessionData) : null;
+}
+
+function storeSession(session) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LOCAL_JOBS_KEY);
+  localStorage.removeItem(OFFLINE_QUEUE_KEY);
+}
+
+// ================= JOB TRACKING FUNCTIONS =================
+function setupJobEventListeners() {
+  jobTab.addEventListener('click', () => {
+    jobSection.style.display = 'flex';
+    chartSection.style.display = 'none';
+    followUpSection.classList.add('hidden');
+    jobTab.classList.add('active-tab');
+    jobTab.classList.remove('bg-red-500', 'text-blue-500');
+    followUpTab.classList.remove('active-tab');
+    followUpTab.classList.add('bg-red-500', 'text-blue-500');
+  });
+
+  followUpTab.addEventListener('click', () => {
+    jobSection.style.display = 'none';
+    chartSection.style.display = 'flex';
+    followUpSection.classList.remove('hidden');
+    followUpTab.classList.add('active-tab');
+    followUpTab.classList.remove('bg-red-500', 'text-blue-500');
+    jobTab.classList.remove('active-tab');
+    jobTab.classList.add('bg-red-500', 'text-blue-500');
+  });
+
+  document.getElementById('jobForm').addEventListener('submit', handleJobFormSubmit);
+}
+
+async function handleJobFormSubmit(e) {
+  e.preventDefault();
+  
+  const session = await getSession();
+  if (!session) {
+    showAuthPage('login');
+    return;
+  }
+
   const formData = {
-    company: document.getElementById('company').value,
-    role: document.getElementById('role').value,
-    date_applied: document.getElementById('date').value,
-    interviewed: document.getElementById('interview').checked,
-    offered: document.getElementById('offer').checked,
-    got_job: document.getElementById('gotJob').checked,
-    mood: document.getElementById('mood').value,
-    resume_filename: '',
-    resume_data: ''
-  };
+     company: document.getElementById('company').value,
+  role: document.getElementById('role').value,
+  date_applied: document.getElementById('date').value || new Date().toISOString().split('T')[0],
+  feedback: document.getElementById('feedback').checked,
+  interviewed: document.getElementById('interviewed').checked,
+  offered: document.getElementById('offer').checked,
+  got_job: document.getElementById('gotJob').checked,
+  mood: document.getElementById('mood').value,
+  application_expectation: parseInt(document.getElementById('expectationSlider').value), // 👈 NEW LINE
+  resume_filename: '',
+  resume_data: '',
+  user_id: session.user.id
+};
 
   // Handle resume upload
   const resumeFile = document.getElementById('resumeUpload').files[0];
@@ -70,104 +297,27 @@ document.getElementById('jobForm').addEventListener('submit', async function (e)
 
       if (error) throw error;
     } catch (error) {
-      // Fallback to offline if Supabase fails
       await handleOfflineSubmission(formData);
     }
   } else {
     await handleOfflineSubmission(formData);
   }
 
-  this.reset();
-  renderAll();
-});
-
-async function handleOfflineSubmission(formData) {
-  await saveToLocal(formData);
-  await addToOfflineQueue('create', formData);
-  alert('You are offline. Job application saved locally and will sync when you reconnect.');
-}
-
-// --- FETCH JOBS ---
-async function fetchJobs() {
-  let remoteJobs = [];
-  const localJobs = await getLocalJobs();
-
-  if (isOnline()) {
-    try {
-      const { data, error } = await supabase
-        .from('job_applications')
-        .select('*')
-        .order('date_applied', { ascending: false });
-
-      if (!error) remoteJobs = data || [];
-    } catch (error) {
-      console.error('Error fetching remote jobs:', error);
-    }
-  }
-
-  // Merge and sort all jobs (remote + local)
-  return [...remoteJobs, ...localJobs].sort((a, b) => 
-    new Date(b.date_applied) - new Date(a.date_applied)
-  );
-}
-
-// --- UPDATE JOB FIELDS ---
-async function updateJobField(id, field, value) {
-  const updateData = { [field]: value };
-
-  if (id.startsWith('local_')) {
-    // Update local job
-    const localJobs = await getLocalJobs();
-    const index = localJobs.findIndex(job => job.local_id === id);
-    if (index >= 0) {
-      localJobs[index][field] = value;
-      await chrome.storage.local.set({ [LOCAL_JOBS_KEY]: localJobs });
-    }
-  } else if (isOnline()) {
-    try {
-      const { error } = await supabase
-        .from('job_applications')
-        .update(updateData)
-        .eq('id', id);
-
-      if (error) throw error;
-    } catch (error) {
-      // Fallback to offline if Supabase fails
-      await addToOfflineQueue('update', { id, update: updateData });
-    }
-  } else {
-    await addToOfflineQueue('update', { id, update: updateData });
-  }
-
+  e.target.reset();
   renderAll();
 }
-
-function getMoodEmoji(mood) {
-  switch (mood) {
-    case 'happy': return '😊';
-    case 'sad': return '😢';
-    case 'angry': return '😠';
-    case 'neutral': return '😐';
-    default: return '';
-  }
-}
-
-
 
 async function extractTextFromPDF(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async function(event) {
       try {
-        // Load PDF.js
         const pdfjsLib = window['pdfjs-dist/build/pdf'];
         pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdfjs/pdf.worker.min.js');
         
-        // Load the PDF
         const typedArray = new Uint8Array(event.target.result);
         const pdf = await pdfjsLib.getDocument(typedArray).promise;
         
-        // Extract text from all pages
         let text = '';
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
@@ -188,11 +338,76 @@ async function extractTextFromPDF(file) {
   });
 }
 
+async function handleOfflineSubmission(formData) {
+  await saveToLocal(formData);
+  await addToOfflineQueue('create', formData);
+  alert('You are offline. Job application saved locally and will sync when you reconnect.');
+}
 
+async function fetchJobs() {
+  const session = await getSession();
+  if (!session) return [];
 
+  let remoteJobs = [];
+  const localJobs = await getLocalJobs();
 
-// --- RENDER JOBS TABLE ---
-// ...existing code...
+  if (isOnline()) {
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('date_applied', { ascending: false });
+
+      if (!error) remoteJobs = data || [];
+    } catch (error) {
+      console.error('Error fetching remote jobs:', error);
+    }
+  }
+
+  return [...remoteJobs, ...localJobs].sort((a, b) => 
+    new Date(b.date_applied) - new Date(a.date_applied)
+  );
+}
+
+async function updateJobField(id, field, value) {
+  const session = await getSession();
+  if (!session) {
+    showAuthPage('login');
+    return;
+  }
+
+  if (id.startsWith('local_')) {
+    const localJobs = await getLocalJobs();
+    const index = localJobs.findIndex(job => job.local_id === id);
+    if (index >= 0) {
+      localJobs[index][field] = value;
+      await chrome.storage.local.set({ [LOCAL_JOBS_KEY]: localJobs });
+    }
+  } else if (isOnline()) {
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ [field]: value })
+        .eq('id', id)
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      await addToOfflineQueue('update', { id, update: { [field]: value } });
+    }
+  } else {
+    await addToOfflineQueue('update', { id, update: { [field]: value } });
+  }
+
+  renderAll();
+}
+
+async function renderAll() {
+  await renderJobsTable();
+  await renderJobsPerDayGraph();
+  updateSyncStatus();
+}
 
 async function renderJobsTable() {
   const jobs = await fetchJobs();
@@ -200,83 +415,109 @@ async function renderJobsTable() {
   tbody.innerHTML = '';
 
   jobs.forEach((job) => {
-    // Count checked follow-up fields
-    const checkedCount =
-      (job.interviewed ? 1 : 0) +
-      (job.offered ? 1 : 0) +
+    const checkedCount = 
+      (job.interviewed ? 1 : 0) + 
+      (job.offered ? 1 : 0) + 
       (job.got_job ? 1 : 0);
 
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="border px-4 py-2">${job.company}</td>
-      <td class="border px-4 py-2">${job.role}</td>
-      <td class="border px-4 py-2">${job.date_applied || ''}</td>
-      <td class="border px-4 py-2 text-center">
-        <input type="checkbox" ${job.interviewed ? 'checked' : ''} data-id="${job.id}" data-field="interviewed" />
-      </td>
-      <td class="border px-4 py-2 text-center">
-        <input type="checkbox" ${job.offered ? 'checked' : ''} data-id="${job.id}" data-field="offered" />
-      </td>
-      <td class="border px-4 py-2 text-center">
-        <input type="checkbox" ${job.got_job ? 'checked' : ''} data-id="${job.id}" data-field="got_job" />
-      </td>
-      <td class="border px-4 py-2 text-center">
-        <select data-id="${job.id}" data-field="mood" class="border rounded px-2 py-1">
-          <option value="happy" ${job.mood === 'happy' ? 'selected' : ''}>😊 Happy</option>
-          <option value="sad" ${job.mood === 'sad' ? 'selected' : ''}>😢 Sad</option>
-          <option value="angry" ${job.mood === 'angry' ? 'selected' : ''}>😠 Angry</option>
-          <option value="neutral" ${job.mood === 'neutral' ? 'selected' : ''}>😐 Neutral</option>
-        </select>
-      </td>
-      <td class="border px-4 py-2 text-center">${checkedCount} / 3</td>
-    `;
+   tr.innerHTML = `
+  <td class="border px-4 py-2">${job.company}</td>
+  <td class="border px-4 py-2">${job.role}</td>
+  <td class="border px-4 py-2">${job.date_applied || ''}</td>
+  <td class="border px-4 py-2 text-center">
+    <input type="checkbox" ${job.interviewed ? 'checked' : ''} 
+           data-id="${job.id || job.local_id}" data-field="interviewed" />
+  </td>
+  <td class="border px-4 py-2 text-center">
+    <input type="checkbox" ${job.offered ? 'checked' : ''} 
+           data-id="${job.id || job.local_id}" data-field="offered" />
+  </td>
+  <td class="border px-4 py-2 text-center">
+    <input type="checkbox" ${job.got_job ? 'checked' : ''} 
+           data-id="${job.id || job.local_id}" data-field="got_job" />
+  </td>
+  <td class="border px-4 py-2 text-center">
+    <select data-id="${job.id || job.local_id}" data-field="mood" class="mood-select">
+      <option value="">--</option>
+      <option value="happy" ${job.mood === 'happy' ? 'selected' : ''}>😊 Happy</option>
+      <option value="sad" ${job.mood === 'sad' ? 'selected' : ''}>😢 Sad</option>
+      <option value="angry" ${job.mood === 'angry' ? 'selected' : ''}>😠 Angry</option>
+      <option value="neutral" ${job.mood === 'neutral' ? 'selected' : ''}>😐 Neutral</option>
+    </select>
+  </td>
+  <td class="border px-4 py-2 text-center">
+    <input type="text" value="${job.feedback || ''}" 
+           data-id="${job.id || job.local_id}" data-field="feedback" 
+           class="feedback-input border border-gray-300 px-1 py-1 rounded w-full" />
+  </td>
+  <td class="border px-4 py-2 text-center">${checkedCount} / 3</td>
+`;
     tbody.appendChild(tr);
   });
 
+
+  tbody.querySelectorAll('select.mood-select').forEach(select => {
+  select.addEventListener('change', function() {
+    const id = this.getAttribute('data-id');
+    const field = this.getAttribute('data-field');
+    const value = this.value;
+    updateJobField(id, field, value);
+  });
+});
+
+tbody.querySelectorAll('input.feedback-checkbox').forEach(checkbox => {
+  checkbox.addEventListener('change', function () {
+    const id = this.getAttribute('data-id');
+    
+    const relatedCheckboxes = [...tbody.querySelectorAll(`input.feedback-checkbox[data-id="${id}"]`)];
+    const selectedValues = relatedCheckboxes
+      .filter(cb => cb.checked)
+      .map(cb => cb.getAttribute('data-value'));
+
+    updateJobField(id, 'feedback', selectedValues.join(','));
+  });
+});
+
   // Add event listeners for checkboxes
   tbody.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-    checkbox.addEventListener('change', function () {
+    checkbox.addEventListener('change', function() {
       const id = this.getAttribute('data-id');
       const field = this.getAttribute('data-field');
       const value = this.checked;
       updateJobField(id, field, value);
     });
   });
-
-  // Add event listeners for mood select
-  tbody.querySelectorAll('select[data-field="mood"]').forEach(select => {
-    select.addEventListener('change', function () {
-      const id = this.getAttribute('data-id');
-      const value = this.value;
-      updateJobField(id, 'mood', value);
-    });
-  });
 }
 
-// Initial render
-renderJobsTable();
-
-
+function getMoodEmoji(mood) {
+  switch(mood) {
+    case 'happy': return '😊';
+    case 'sad': return '😢';
+    case 'angry': return '😠';
+    case 'neutral': return '😐';
+    default: return '';
+  }
+}
 
 async function renderJobsPerDayGraph() {
   const jobs = await fetchJobs();
-  // Count jobs per day
   const counts = {};
+  
   jobs.forEach(job => {
     if (job.date_applied) {
       counts[job.date_applied] = (counts[job.date_applied] || 0) + 1;
     }
   });
 
-  // Sort dates
   const dates = Object.keys(counts).sort();
   const values = dates.map(date => counts[date]);
 
-  // Prepare chart data
   const ctx = document.getElementById('jobsPerDayChart').getContext('2d');
   if (window.jobsPerDayChartInstance) {
     window.jobsPerDayChartInstance.destroy();
   }
+  
   window.jobsPerDayChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
@@ -287,167 +528,109 @@ async function renderJobsPerDayGraph() {
         fill: false,
         borderColor: '#3b82f6',
         backgroundColor: '#3b82f6',
-        tension: 0.2,
-        pointRadius: 3
+        tension: 0.3,
+        pointRadius: 4
       }]
     },
     options: {
-      plugins: {
-        legend: { display: false }
-      },
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          title: { display: true, text: 'Date' }
-        },
-        y: {
+        x: { title: { display: true, text: 'Date' } },
+        y: { 
           title: { display: true, text: 'Applications' },
           beginAtZero: true,
-          precision: 0,
-          ticks: { stepSize: 1 }
+          ticks: { stepSize: 1, padding: 0 }
         }
       }
     }
   });
 }
 
-// Call this after rendering the table
-async function renderAll() {
-  await renderJobsTable();
-  await renderJobsPerDayGraph();
-}
-
-// Initial render
-renderAll();
-
-// Replace all calls to renderJobsTable() with renderAll()
-// For example, after form submission:
-document.getElementById('jobForm').addEventListener('submit', async function (e) {
-  // ...existing code...
-  this.reset();
-  renderAll();
-});
-
-// And after updating job fields:
-async function updateJobField(id, field, value) {
-  const { error } = await supabase
-    .from('job_applications')
-    .update({ [field]: value })
-    .eq('id', id);
-
-  if (error) console.error('Update error:', error.message);
-  renderAll();
-}
-
-
-
-
-
-// Check online status
-function isOnline() {
-  return navigator.onLine;
-}
-
-// Save to local storage
+// ================= STORAGE FUNCTIONS =================
 async function saveToLocal(jobData) {
   const localJobs = await getLocalJobs();
   localJobs.push({
     ...jobData,
-    local_id: Date.now().toString(), // Unique ID for local items
-    is_local: true
+    local_id: 'local_' + Date.now()
   });
   await chrome.storage.local.set({ [LOCAL_JOBS_KEY]: localJobs });
 }
 
-// Get local jobs
 async function getLocalJobs() {
   const result = await chrome.storage.local.get(LOCAL_JOBS_KEY);
   return result[LOCAL_JOBS_KEY] || [];
 }
 
-// Save to offline queue
 async function addToOfflineQueue(operation, data) {
   const queue = await getOfflineQueue();
   queue.push({ operation, data, timestamp: new Date().toISOString() });
   await chrome.storage.local.set({ [OFFLINE_QUEUE_KEY]: queue });
 }
 
-// Get offline queue
 async function getOfflineQueue() {
   const result = await chrome.storage.local.get(OFFLINE_QUEUE_KEY);
   return result[OFFLINE_QUEUE_KEY] || [];
 }
 
-// Process offline queue when coming online
 async function processOfflineQueue() {
   if (!isOnline()) return;
 
   const queue = await getOfflineQueue();
   if (queue.length === 0) return;
 
+  const session = await getSession();
+  if (!session) return;
+
   for (const item of queue) {
     try {
       if (item.operation === 'create') {
-        await supabase.from('job_applications').insert([item.data]);
+        await supabase.from('job_applications').insert([{ ...item.data, user_id: session.user.id }]);
       } else if (item.operation === 'update') {
         await supabase.from('job_applications')
           .update(item.data.update)
-          .eq('id', item.data.id);
+          .eq('id', item.data.id)
+          .eq('user_id', session.user.id);
       }
     } catch (error) {
       console.error('Sync error:', error);
-      // Retry later
       break;
     }
   }
 
-  // Remove processed items
-  const remainingQueue = queue.slice(queue.findIndex(x => x === item) + 1);
+  const remainingQueue = queue.slice(1); // Remove processed item
   await chrome.storage.local.set({ [OFFLINE_QUEUE_KEY]: remainingQueue });
 }
 
-// Listen for online/offline events
-window.addEventListener('online', processOfflineQueue);
-
+// ================= UTILITY FUNCTIONS =================
+function isOnline() {
+  return navigator.onLine;
+}
 
 function updateSyncStatus() {
   const statusElement = document.getElementById('syncStatus');
   const statusText = document.getElementById('syncStatusText');
   
   if (!isOnline()) {
-    statusElement.classList.remove('hidden', 'sync-online', 'sync-error');
-    statusElement.classList.add('sync-offline');
-    statusText.textContent = 'Offline - Changes will sync when you reconnect';
+    statusElement.className = 'sync-offline';
+    statusText.textContent = 'Offline';
     statusElement.classList.remove('hidden');
   } else {
-    statusElement.classList.remove('hidden', 'sync-offline', 'sync-error');
-    statusElement.classList.add('sync-online');
-    statusText.textContent = 'Online - Changes are syncing';
+    statusElement.className = 'sync-online';
+    statusText.textContent = 'Online';
     statusElement.classList.remove('hidden');
   }
 }
 
-// Initial status update
-updateSyncStatus();
-
-// Update on network changes
+// ================= EVENT LISTENERS =================
 window.addEventListener('online', () => {
   updateSyncStatus();
   processOfflineQueue();
+  renderAll();
 });
-window.addEventListener('offline', updateSyncStatus);
 
-
-// Sync every 5 minutes when online
-const SYNC_INTERVAL = 5 * 60 * 1000;
-
-chrome.alarms.create('periodicSync', { periodInMinutes: 5 });
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === 'periodicSync' && navigator.onLine) {
-    try {
-      await chrome.runtime.sendMessage({ type: 'SYNC_QUEUE' });
-    } catch (error) {
-      console.error('Sync error:', error);
-    }
-  }
+window.addEventListener('offline', () => {
+  updateSyncStatus();
 });
+
+// Initial sync status
+updateSyncStatus();

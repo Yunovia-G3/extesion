@@ -7,6 +7,7 @@
     "storage",
     "sidePanel",
     "identity",
+    "identity.email",
     "unlimitedStorage"
   ],
   "background": {
@@ -22,5 +23,11 @@
     "resources": ["pdfjs/*"],
     "matches": ["<all_urls>"]
   }],
-  "host_permissions": ["<all_urls>"]
+  "host_permissions": ["<all_urls>"],
+  "oauth2": {
+    "client_id": "1043893440912-ren2nsppp32i4r0mnb21c0vm66t2h5v2.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+}
 }

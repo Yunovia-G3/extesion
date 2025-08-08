@@ -1,4 +1,8 @@
-// Open side panel when extension icon is clicked
+chrome.identity.getProfileUserInfo((info) => {
+  console.log("Chrome user email (may be empty):", info.id);
+});
+
+
 chrome.action.onClicked.addListener(async (tab) => {
   try {
     // Open the side panel
@@ -20,3 +24,5 @@ chrome.runtime.onInstalled.addListener(() => {
     enabled: true
   });
 });
+
+
