@@ -51,19 +51,7 @@ Click on "Load unpacked" and select the folder where the extension was cloned or
 
 The Job Tracker Extension icon will appear in your Chrome toolbar. Click it to open the side panel!
 
-📂 Project Structure
-bash
-Copy
-Edit
-job-tracker-extension/
-│
-├── sidepanel.html        # Main UI for the side panel
-├── sidepanel.js          # Handles form and data logic
-├── sidepanel.css         # Styling for side panel
-├── background.js         # Background service for auth/session
-├── manifest.json         # Extension config file
-├── icons/                # Extension icons
-└── dashboard/            # (Optional) Web dashboard link or files
+
 🧠 Tech Stack
 HTML, CSS, JavaScript
 
