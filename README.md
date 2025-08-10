@@ -72,3 +72,22 @@ Dark mode toggle.
 
 🙌 Contribution
 Pull requests are welcome! For major changes, please open an issue first to discuss what you'd like to change or improve.
+
+
+#  Screenshot
+
+<img width="378" height="777" alt="image" src="https://github.com/user-attachments/assets/9c9cd1c7-5f06-425b-b54d-dc6cefabcfd7" />
+
+<img width="378" height="770" alt="image" src="https://github.com/user-attachments/assets/6e530335-19a5-4923-9823-01b0ea51e8d6" />
+
+<img width="379" height="769" alt="image" src="https://github.com/user-attachments/assets/5351a865-952e-40f6-9b44-a30fe18edaaa" />
+
+<img width="371" height="764" alt="image" src="https://github.com/user-attachments/assets/2fcc883d-784a-4220-aeae-d6a9b5b2e1e2" />
+
+<img width="377" height="767" alt="image" src="https://github.com/user-attachments/assets/78698c6d-efc4-4580-bca6-57ba6a256947" />
+
+<img width="373" height="769" alt="image" src="https://github.com/user-attachments/assets/db8ed473-8525-489a-a958-3f1f1f684d7e" />
+
+<img width="379" height="771" alt="image" src="https://github.com/user-attachments/assets/b4c10c7b-16fb-4736-92c8-51c84dd0bbd5" />
+
+
