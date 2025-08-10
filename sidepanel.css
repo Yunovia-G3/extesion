@@ -52,7 +52,7 @@ body, .body-container {
 }
 #logoutBtn {
     width: 70px;
-    height: 30px;
+    height: 25px;
     padding: 10px 20px ;
     color: white;
   text-align: center;
@@ -70,6 +70,31 @@ body, .body-container {
 #logoutBtn:hover {
   background-color: #88382c;
 }
+.nav-items {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items:baseline;
+}
+.dashboard{
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.dashboard p{
+    color: white;
+    font-weight: bold;
+    font-size: 10px;
+    margin-right: 10px;
+}
+.dashboard :hover{
+    color: #FD6751;
+}
+.dash{
+  width: 20px;
+  height: 20px;
+}
+
 .prof-initials{
     width: 30px;
     height: 30px;

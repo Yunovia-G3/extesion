@@ -28,6 +28,9 @@ const today = new Date().toISOString().split('T')[0];
     valueDisplay.textContent = slider.value;
   });
 
+  document.getElementById('openAppBtn').addEventListener('click', () => {
+  window.open('https://yunovia-g3.github.io/Dashboard/', '_blank');
+});
 // Storage keys
 const OFFLINE_QUEUE_KEY = 'offline_job_queue';
 const LOCAL_JOBS_KEY = 'local_jobs';
