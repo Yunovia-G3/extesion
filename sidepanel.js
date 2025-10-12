@@ -14,107 +14,173 @@ const showLogin = document.getElementById('showLogin');
 const appContent = document.getElementById('appContent');
 const logoutBtn = document.getElementById('logoutBtn');
 
+// Tabs and Sections
 const jobTab = document.getElementById('jobTab');
 const followUpTab = document.getElementById('followUpTab');
+const analyticsTab = document.getElementById('analyticsTab');
 const jobSection = document.getElementById('jobSection');
 const followUpSection = document.getElementById('followUpSection');
-const chartSection = document.getElementById('chartSection');
-const today = new Date().toISOString().split('T')[0];
-  document.getElementById('date').value = today;
- const slider = document.getElementById('expectationSlider');
-  const valueDisplay = document.getElementById('expectationValue');
+const analyticsSection = document.getElementById('analyticsSection');
 
-  slider.addEventListener('input', () => {
-    valueDisplay.textContent = slider.value;
-  });
+// Profile elements
+const userInitials = document.getElementById('userInitials');
+const userEmail = document.getElementById('userEmail');
 
-  document.getElementById('openAppBtn').addEventListener('click', () => {
-  window.open('https://yunovia-g3.github.io/Dashboard/', '_blank');
-});
+// Stats elements
+const totalApplications = document.getElementById('totalApplications');
+const interviewCount = document.getElementById('interviewCount');
+const offerCount = document.getElementById('offerCount');
+
+// Analytics elements
+const avgExpectation = document.getElementById('avgExpectation');
+const successRate = document.getElementById('successRate');
+
 // Storage keys
 const OFFLINE_QUEUE_KEY = 'offline_job_queue';
 const LOCAL_JOBS_KEY = 'local_jobs';
 const SESSION_KEY = 'supabase_session';
 
+// Global variables
+let currentJobs = [];
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-  createProfileSection();
   initializeApp();
 });
 
 async function initializeApp() {
   setupAuthEventListeners();
-  await checkAuthState();
   setupJobEventListeners();
+  setupTabNavigation();
+  setupFileUpload();
+  setupSlider();
+  setupFilter();
+  await checkAuthState();
 }
 
-function createProfileSection() {
-  const profileSection = document.createElement('div');
-  profileSection.id = 'profileSection';
-  profileSection.className = 'flex items-center justify-between mb-4 p-2 bg-gray-100 rounded';
+function setupTabNavigation() {
+  // Set initial active section
+  document.querySelectorAll('.content-section').forEach(section => {
+    section.classList.remove('active');
+  });
+  jobSection.classList.add('active');
 
-  profileSection.innerHTML = `
-    <div class ="profile">
-      <div class="prof-initials">
-        ${getInitials('')}
-      </div>
-      <div class="mail">
-        <p id="userEmail" class="text-sm font-medium"></p>
-      </div>
-    </div>
-  `;
+  jobTab.addEventListener('click', () => {
+    switchTab('jobTab');
+  });
 
-  const topNav = document.querySelector('.top-nav');
-topNav.prepend(profileSection);
+  followUpTab.addEventListener('click', () => {
+    switchTab('followUpTab');
+  });
+
+  analyticsTab.addEventListener('click', () => {
+    switchTab('analyticsTab');
+  });
 }
-const dropArea = document.getElementById('fileDropArea');
-const fileInput = document.getElementById('resumeUpload');
 
-dropArea.addEventListener('click', () => {
-  fileInput.click(); // open file picker on click
-});
+function switchTab(activeTabId) {
+  // Update tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.classList.remove('active-tab');
+  });
+  document.getElementById(activeTabId).classList.add('active-tab');
 
-dropArea.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  dropArea.classList.add('dragover');
-});
+  // Update sections
+  document.querySelectorAll('.content-section').forEach(section => {
+    section.classList.remove('active');
+  });
 
-dropArea.addEventListener('dragleave', () => {
-  dropArea.classList.remove('dragover');
-});
-
-dropArea.addEventListener('drop', (e) => {
-  e.preventDefault();
-  dropArea.classList.remove('dragover');
-
-  if (e.dataTransfer.files.length > 0) {
-    fileInput.files = e.dataTransfer.files; // update input
-    console.log("File dropped:", fileInput.files[0]);
+  switch(activeTabId) {
+    case 'jobTab':
+      jobSection.classList.add('active');
+      break;
+    case 'followUpTab':
+      followUpSection.classList.add('active');
+      break;
+    case 'analyticsTab':
+      analyticsSection.classList.add('active');
+      renderAnalytics();
+      break;
   }
-});
-function showFileName(file) {
-  fileNameDisplay.textContent = `📄 Uploaded: ${file.name}`;
-  dropArea.classList.add('uploaded');
 }
+
+function setupSlider() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('date').value = today;
+  
+  const slider = document.getElementById('expectationSlider');
+  const valueDisplay = document.getElementById('expectationValue');
+
+  slider.addEventListener('input', () => {
+    valueDisplay.textContent = slider.value;
+  });
+}
+
+function setupFilter() {
+  const filterSelect = document.getElementById('filterSelect');
+  filterSelect.addEventListener('change', () => {
+    renderApplicationsList();
+  });
+}
+
+function setupFileUpload() {
+  const dropArea = document.getElementById('fileDropArea');
+  const fileInput = document.getElementById('resumeUpload');
+  const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+  dropArea.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  dropArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropArea.classList.add('dragover');
+  });
+
+  dropArea.addEventListener('dragleave', () => {
+    dropArea.classList.remove('dragover');
+  });
+
+  dropArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      showFileName(fileInput.files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      showFileName(fileInput.files[0]);
+    }
+  });
+}
+
+function showFileName(file) {
+  const fileNameDisplay = document.getElementById('fileNameDisplay');
+  fileNameDisplay.textContent = `📄 ${file.name}`;
+  fileNameDisplay.style.display = 'block';
+}
+
 function clearFile() {
+  const fileInput = document.getElementById('resumeUpload');
+  const fileNameDisplay = document.getElementById('fileNameDisplay');
   fileInput.value = "";
   fileNameDisplay.textContent = "";
-  dropArea.classList.remove('uploaded');
+  fileNameDisplay.style.display = 'none';
 }
 
-
 function updateProfileSection(email) {
-  const userEmailElement = document.getElementById('userEmail');
-  const initialsElement = document.querySelector('#profileSection div div:first-child');
-
   if (email) {
-    userEmailElement.textContent = email;
-    initialsElement.textContent = getInitials(email);
-    initialsElement.title = email;
+    userEmail.textContent = email;
+    userInitials.textContent = getInitials(email);
+    userInitials.title = email;
   } else {
-    userEmailElement.textContent = 'Not logged in';
-    initialsElement.textContent = '?';
-    initialsElement.title = '';
+    userEmail.textContent = 'Not signed in';
+    userInitials.textContent = '?';
+    userInitials.title = '';
   }
 }
 
@@ -130,7 +196,7 @@ async function checkAuthState() {
   if (session) {
     showAppContent();
     updateProfileSection(session.user.email);
-    renderAll();
+    await renderAll();
   } else {
     showAuthPage('login');
     updateProfileSection(null);
@@ -174,7 +240,7 @@ function setupAuthEventListeners() {
       storeSession(data.session);
       showAppContent();
       updateProfileSection(data.user.email);
-      renderAll();
+      await renderAll();
     }
   });
 
@@ -191,7 +257,7 @@ function setupAuthEventListeners() {
       storeSession(data.session);
       showAppContent();
       updateProfileSection(data.user.email);
-      renderAll();
+      await renderAll();
     }
   });
 
@@ -199,6 +265,10 @@ function setupAuthEventListeners() {
     await supabase.auth.signOut();
     clearSession();
     showAuthPage('login');
+  });
+
+  document.getElementById('openAppBtn').addEventListener('click', () => {
+    window.open('https://job-dash-ashy.vercel.app/', '_blank');
   });
 }
 
@@ -231,26 +301,6 @@ function clearSession() {
 
 // ================= JOB TRACKING FUNCTIONS =================
 function setupJobEventListeners() {
-  jobTab.addEventListener('click', () => {
-    jobSection.style.display = 'flex';
-    chartSection.style.display = 'none';
-    followUpSection.classList.add('hidden');
-    jobTab.classList.add('active-tab');
-    jobTab.classList.remove('bg-red-500', 'text-blue-500');
-    followUpTab.classList.remove('active-tab');
-    followUpTab.classList.add('bg-red-500', 'text-blue-500');
-  });
-
-  followUpTab.addEventListener('click', () => {
-    jobSection.style.display = 'none';
-    chartSection.style.display = 'flex';
-    followUpSection.classList.remove('hidden');
-    followUpTab.classList.add('active-tab');
-    followUpTab.classList.remove('bg-red-500', 'text-blue-500');
-    jobTab.classList.remove('active-tab');
-    jobTab.classList.add('bg-red-500', 'text-blue-500');
-  });
-
   document.getElementById('jobForm').addEventListener('submit', handleJobFormSubmit);
 }
 
@@ -264,19 +314,19 @@ async function handleJobFormSubmit(e) {
   }
 
   const formData = {
-     company: document.getElementById('company').value,
-  role: document.getElementById('role').value,
-  date_applied: document.getElementById('date').value || new Date().toISOString().split('T')[0],
-  feedback: document.getElementById('feedback').checked,
-  interviewed: document.getElementById('interviewed').checked,
-  offered: document.getElementById('offer').checked,
-  got_job: document.getElementById('gotJob').checked,
-  mood: document.getElementById('mood').value,
-  application_expectation: parseInt(document.getElementById('expectationSlider').value), // 👈 NEW LINE
-  resume_filename: '',
-  resume_data: '',
-  user_id: session.user.id
-};
+    company: document.getElementById('company').value,
+    role: document.getElementById('role').value,
+    date_applied: document.getElementById('date').value || new Date().toISOString().split('T')[0],
+    feedback: document.getElementById('feedback')?.checked || false,
+    interviewed: document.getElementById('interviewed').checked,
+    offered: document.getElementById('offer').checked,
+    got_job: document.getElementById('gotJob').checked,
+    mood: document.getElementById('mood').value,
+    application_expectation: parseInt(document.getElementById('expectationSlider').value),
+    resume_filename: '',
+    resume_data: '',
+    user_id: session.user.id
+  };
 
   // Handle resume upload
   const resumeFile = document.getElementById('resumeUpload').files[0];
@@ -299,6 +349,7 @@ async function handleJobFormSubmit(e) {
         .insert([formData]);
 
       if (error) throw error;
+      alert('Job application added successfully!');
     } catch (error) {
       await handleOfflineSubmission(formData);
     }
@@ -307,7 +358,12 @@ async function handleJobFormSubmit(e) {
   }
 
   e.target.reset();
-  renderAll();
+  clearFile();
+  // Reset slider to default
+  document.getElementById('expectationSlider').value = 3;
+  document.getElementById('expectationValue').textContent = '3';
+  
+  await renderAll();
 }
 
 async function extractTextFromPDF(file) {
@@ -368,9 +424,12 @@ async function fetchJobs() {
     }
   }
 
-  return [...remoteJobs, ...localJobs].sort((a, b) => 
+  const allJobs = [...remoteJobs, ...localJobs].sort((a, b) => 
     new Date(b.date_applied) - new Date(a.date_applied)
   );
+  
+  currentJobs = allJobs;
+  return allJobs;
 }
 
 async function updateJobField(id, field, value) {
@@ -403,94 +462,286 @@ async function updateJobField(id, field, value) {
     await addToOfflineQueue('update', { id, update: { [field]: value } });
   }
 
-  renderAll();
+  await renderAll();
 }
 
 async function renderAll() {
-  await renderJobsTable();
-  await renderJobsPerDayGraph();
+  await fetchJobs();
+  updateStats();
+  await renderApplicationsList();
   updateSyncStatus();
 }
 
-async function renderJobsTable() {
-  const jobs = await fetchJobs();
-  const tbody = document.getElementById('jobsTableBody');
-  tbody.innerHTML = '';
+function updateStats() {
+  const jobs = currentJobs || [];
+  const total = jobs.length;
+  const interviews = jobs.filter(job => job.interviewed).length;
+  const offers = jobs.filter(job => job.offered).length;
 
-  jobs.forEach((job) => {
-    const checkedCount = 
-      (job.interviewed ? 1 : 0) + 
-      (job.offered ? 1 : 0) + 
-      (job.got_job ? 1 : 0);
+  totalApplications.textContent = total;
+  interviewCount.textContent = interviews;
+  offerCount.textContent = offers;
+}
 
-    const tr = document.createElement('tr');
-   tr.innerHTML = `
-  <td class="border px-4 py-2">${job.company}</td>
-  <td class="border px-4 py-2">${job.role}</td>
-  <td class="border px-4 py-2">${job.date_applied || ''}</td>
-  <td class="border px-4 py-2 text-center">
-    <input type="checkbox" ${job.interviewed ? 'checked' : ''} 
-           data-id="${job.id || job.local_id}" data-field="interviewed" />
-  </td>
-  <td class="border px-4 py-2 text-center">
-    <input type="checkbox" ${job.offered ? 'checked' : ''} 
-           data-id="${job.id || job.local_id}" data-field="offered" />
-  </td>
-  <td class="border px-4 py-2 text-center">
-    <input type="checkbox" ${job.got_job ? 'checked' : ''} 
-           data-id="${job.id || job.local_id}" data-field="got_job" />
-  </td>
-  <td class="border px-4 py-2 text-center">
-    <select data-id="${job.id || job.local_id}" data-field="mood" class="mood-select">
-      <option value="">--</option>
-      <option value="happy" ${job.mood === 'happy' ? 'selected' : ''}>😊 Happy</option>
-      <option value="sad" ${job.mood === 'sad' ? 'selected' : ''}>😢 Sad</option>
-      <option value="angry" ${job.mood === 'angry' ? 'selected' : ''}>😠 Angry</option>
-      <option value="neutral" ${job.mood === 'neutral' ? 'selected' : ''}>😐 Neutral</option>
-    </select>
-  </td>
-  <td class="border px-4 py-2 text-center">
-    <input type="text" value="${job.feedback || ''}" 
-           data-id="${job.id || job.local_id}" data-field="feedback" 
-           class="feedback-input border border-gray-300 px-1 py-1 rounded w-full" />
-  </td>
-  <td class="border px-4 py-2 text-center">${checkedCount} / 3</td>
-`;
-    tbody.appendChild(tr);
+async function renderApplicationsList() {
+  const jobs = currentJobs || [];
+  const filterSelect = document.getElementById('filterSelect');
+  const filterValue = filterSelect.value;
+  
+  let filteredJobs = jobs;
+  
+  switch(filterValue) {
+    case 'interviewed':
+      filteredJobs = jobs.filter(job => job.interviewed);
+      break;
+    case 'offered':
+      filteredJobs = jobs.filter(job => job.offered);
+      break;
+    case 'hired':
+      filteredJobs = jobs.filter(job => job.got_job);
+      break;
+    case 'pending':
+      filteredJobs = jobs.filter(job => !job.interviewed && !job.offered && !job.got_job);
+      break;
+    case 'all':
+    default:
+      filteredJobs = jobs;
+  }
+
+  const applicationsList = document.getElementById('applicationsList');
+  applicationsList.innerHTML = '';
+
+  if (filteredJobs.length === 0) {
+    applicationsList.innerHTML = `
+      <div class="empty-state">
+        <p>No applications found</p>
+        <small>Try changing your filter or add new applications</small>
+      </div>
+    `;
+    return;
+  }
+
+  filteredJobs.forEach((job) => {
+    const appCard = createApplicationCard(job);
+    applicationsList.appendChild(appCard);
   });
+}
 
-
-  tbody.querySelectorAll('select.mood-select').forEach(select => {
-  select.addEventListener('change', function() {
-    const id = this.getAttribute('data-id');
-    const field = this.getAttribute('data-field');
-    const value = this.value;
-    updateJobField(id, field, value);
-  });
-});
-
-tbody.querySelectorAll('input.feedback-checkbox').forEach(checkbox => {
-  checkbox.addEventListener('change', function () {
-    const id = this.getAttribute('data-id');
+function createApplicationCard(job) {
+  const appCard = document.createElement('div');
+  appCard.className = 'application-card';
+  
+  // Calculate progress
+  const progress = calculateProgress(job);
+  const statusBadges = generateStatusBadges(job);
+  
+  appCard.innerHTML = `
+    <div class="app-card-header">
+      <div>
+        <div class="app-company">${job.company}</div>
+        <div class="app-role">${job.role}</div>
+      </div>
+      <div class="app-date">${formatDate(job.date_applied)}</div>
+    </div>
     
-    const relatedCheckboxes = [...tbody.querySelectorAll(`input.feedback-checkbox[data-id="${id}"]`)];
-    const selectedValues = relatedCheckboxes
-      .filter(cb => cb.checked)
-      .map(cb => cb.getAttribute('data-value'));
-
-    updateJobField(id, 'feedback', selectedValues.join(','));
-  });
-});
-
+    <!-- Follow-up Progress -->
+    <div class="follow-up-progress">
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: ${progress.percentage}%"></div>
+      </div>
+      <div class="progress-text">${progress.completed}/3 milestones completed</div>
+    </div>
+    
+    <!-- Quick Follow-up Actions -->
+    <div class="follow-up-actions">
+      <div class="follow-up-item">
+        <input type="checkbox" 
+               class="follow-up-checkbox" 
+               id="interviewed_${job.id || job.local_id}"
+               ${job.interviewed ? 'checked' : ''}
+               data-id="${job.id || job.local_id}"
+               data-field="interviewed">
+        <label class="follow-up-label" for="interviewed_${job.id || job.local_id}">Interviewed</label>
+      </div>
+      
+      <div class="follow-up-item">
+        <input type="checkbox" 
+               class="follow-up-checkbox" 
+               id="offered_${job.id || job.local_id}"
+               ${job.offered ? 'checked' : ''}
+               data-id="${job.id || job.local_id}"
+               data-field="offered">
+        <label class="follow-up-label" for="offered_${job.id || job.local_id}">Got Offer</label>
+      </div>
+      
+      <div class="follow-up-item">
+        <input type="checkbox" 
+               class="follow-up-checkbox" 
+               id="hired_${job.id || job.local_id}"
+               ${job.got_job ? 'checked' : ''}
+               data-id="${job.id || job.local_id}"
+               data-field="got_job">
+        <label class="follow-up-label" for="hired_${job.id || job.local_id}">Hired</label>
+      </div>
+    </div>
+    
+    <!-- Status Summary -->
+    <div class="app-card-footer">
+      <div class="app-status">
+        ${statusBadges}
+      </div>
+      <div class="app-mood">${getMoodEmoji(job.mood)}</div>
+    </div>
+    
+    <!-- Additional Actions -->
+    <div class="app-actions">
+      <button class="action-btn add-note" data-id="${job.id || job.local_id}">
+        Add Note
+      </button>
+      <button class="action-btn view-details" data-id="${job.id || job.local_id}">
+        Details
+      </button>
+    </div>
+  `;
+  
   // Add event listeners for checkboxes
-  tbody.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+  const checkboxes = appCard.querySelectorAll('.follow-up-checkbox');
+  checkboxes.forEach(checkbox => {
     checkbox.addEventListener('change', function() {
       const id = this.getAttribute('data-id');
       const field = this.getAttribute('data-field');
       const value = this.checked;
-      updateJobField(id, field, value);
+      
+      // Show loading state
+      this.disabled = true;
+      
+      updateJobField(id, field, value).then(() => {
+        // Re-enable checkbox
+        this.disabled = false;
+        
+        // Show success feedback
+        showUpdateFeedback(this, 'Updated!');
+      }).catch(() => {
+        this.disabled = false;
+        this.checked = !value; // Revert if failed
+      });
     });
   });
+  
+  // Add event listeners for action buttons
+  const addNoteBtn = appCard.querySelector('.add-note');
+  const viewDetailsBtn = appCard.querySelector('.view-details');
+  
+  addNoteBtn.addEventListener('click', function() {
+    const jobId = this.getAttribute('data-id');
+    showNoteModal(jobId);
+  });
+  
+  viewDetailsBtn.addEventListener('click', function() {
+    const jobId = this.getAttribute('data-id');
+    showJobDetails(jobId);
+  });
+  
+  return appCard;
+}
+
+function calculateProgress(job) {
+  const milestones = ['interviewed', 'offered', 'got_job'];
+  const completed = milestones.filter(milestone => job[milestone]).length;
+  const percentage = (completed / milestones.length) * 100;
+  
+  return {
+    completed,
+    total: milestones.length,
+    percentage
+  };
+}
+
+function generateStatusBadges(job) {
+  let badges = '';
+  
+  if (job.interviewed) {
+    badges += '<span class="status-badge status-interview">Interviewed</span>';
+  }
+  
+  if (job.offered) {
+    badges += '<span class="status-badge status-offer">Offer</span>';
+  }
+  
+  if (job.got_job) {
+    badges += '<span class="status-badge status-hired">Hired</span>';
+  }
+  
+  if (!job.interviewed && !job.offered && !job.got_job) {
+    badges += '<span class="status-badge status-pending">Pending</span>';
+  }
+  
+  return badges;
+}
+
+function showUpdateFeedback(element, message) {
+  const originalColor = element.style.accentColor;
+  element.style.accentColor = '#22c55e';
+  
+  // Create feedback tooltip
+  const tooltip = document.createElement('div');
+  tooltip.textContent = message;
+  tooltip.style.cssText = `
+    position: absolute;
+    background: #22c55e;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    z-index: 1000;
+    pointer-events: none;
+  `;
+  
+  const rect = element.getBoundingClientRect();
+  tooltip.style.left = (rect.left + rect.width/2 - 20) + 'px';
+  tooltip.style.top = (rect.top - 25) + 'px';
+  
+  document.body.appendChild(tooltip);
+  
+  setTimeout(() => {
+    element.style.accentColor = originalColor;
+    tooltip.remove();
+  }, 1000);
+}
+
+function showNoteModal(jobId) {
+  const job = currentJobs.find(j => (j.id || j.local_id) === jobId);
+  if (!job) return;
+  
+  const note = prompt(`Add a note for ${job.company} - ${job.role}:`, job.notes || '');
+  if (note !== null) {
+    updateJobField(jobId, 'notes', note);
+  }
+}
+
+function showJobDetails(jobId) {
+  const job = currentJobs.find(j => (j.id || j.local_id) === jobId);
+  if (!job) return;
+  
+  const details = `
+Company: ${job.company}
+Role: ${job.role}
+Date Applied: ${formatDate(job.date_applied)}
+Expectation: ${job.application_expectation}/5
+Mood: ${job.mood}
+Interviewed: ${job.interviewed ? 'Yes' : 'No'}
+Offer Received: ${job.offered ? 'Yes' : 'No'}
+Hired: ${job.got_job ? 'Yes' : 'No'}
+${job.notes ? `Notes: ${job.notes}` : ''}
+  `.trim();
+  
+  alert(details);
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function getMoodEmoji(mood) {
@@ -499,12 +750,36 @@ function getMoodEmoji(mood) {
     case 'sad': return '😢';
     case 'angry': return '😠';
     case 'neutral': return '😐';
-    default: return '';
+    default: return '😐';
   }
 }
 
-async function renderJobsPerDayGraph() {
-  const jobs = await fetchJobs();
+function renderAnalytics() {
+  const jobs = currentJobs || [];
+  
+  if (jobs.length === 0) {
+    document.getElementById('jobsPerDayChart').style.display = 'none';
+    avgExpectation.textContent = '0';
+    successRate.textContent = '0%';
+    return;
+  }
+
+  document.getElementById('jobsPerDayChart').style.display = 'block';
+  
+  // Calculate average expectation
+  const avgExp = jobs.reduce((sum, job) => sum + (job.application_expectation || 3), 0) / jobs.length;
+  avgExpectation.textContent = avgExp.toFixed(1);
+
+  // Calculate success rate (percentage of applications that led to interviews)
+  const successCount = jobs.filter(job => job.interviewed).length;
+  const successPercentage = jobs.length > 0 ? (successCount / jobs.length * 100).toFixed(1) : 0;
+  successRate.textContent = `${successPercentage}%`;
+
+  renderJobsPerDayChart();
+}
+
+function renderJobsPerDayChart() {
+  const jobs = currentJobs || [];
   const counts = {};
   
   jobs.forEach(job => {
@@ -517,6 +792,8 @@ async function renderJobsPerDayGraph() {
   const values = dates.map(date => counts[date]);
 
   const ctx = document.getElementById('jobsPerDayChart').getContext('2d');
+  
+  // Destroy existing chart if it exists
   if (window.jobsPerDayChartInstance) {
     window.jobsPerDayChartInstance.destroy();
   }
@@ -524,29 +801,64 @@ async function renderJobsPerDayGraph() {
   window.jobsPerDayChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: dates,
+      labels: dates.map(date => formatChartDate(date)),
       datasets: [{
-        label: 'Jobs Applied',
+        label: 'Applications per Day',
         data: values,
-        fill: false,
-        borderColor: '#3b82f6',
-        backgroundColor: '#3b82f6',
-        tension: 0.3,
-        pointRadius: 4
+        fill: true,
+        borderColor: '#e67600',
+        backgroundColor: 'rgba(230, 118, 0, 0.1)',
+        tension: 0.4,
+        pointBackgroundColor: '#e67600',
+        pointBorderColor: '#052525',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6
       }]
     },
     options: {
-      plugins: { legend: { display: false } },
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(5, 37, 37, 0.9)',
+          titleColor: '#e67600',
+          bodyColor: 'white',
+          borderColor: '#e67600',
+          borderWidth: 1
+        }
+      },
       scales: {
-        x: { title: { display: true, text: 'Date' } },
-        y: { 
-          title: { display: true, text: 'Applications' },
+        x: {
+          grid: {
+            color: 'rgba(255, 255, 255, 0.1)'
+          },
+          ticks: {
+            color: '#a0aec0',
+            maxTicksLimit: 6
+          }
+        },
+        y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, padding: 0 }
+          grid: {
+            color: 'rgba(255, 255, 255, 0.1)'
+          },
+          ticks: {
+            color: '#a0aec0',
+            stepSize: 1
+          }
         }
       }
     }
   });
+}
+
+function formatChartDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // ================= STORAGE FUNCTIONS =================
@@ -600,7 +912,7 @@ async function processOfflineQueue() {
     }
   }
 
-  const remainingQueue = queue.slice(1); // Remove processed item
+  const remainingQueue = queue.slice(1);
   await chrome.storage.local.set({ [OFFLINE_QUEUE_KEY]: remainingQueue });
 }
 
@@ -614,13 +926,11 @@ function updateSyncStatus() {
   const statusText = document.getElementById('syncStatusText');
   
   if (!isOnline()) {
-    statusElement.className = 'sync-offline';
+    statusElement.className = 'sync-indicator sync-offline';
     statusText.textContent = 'Offline';
-    statusElement.classList.remove('hidden');
   } else {
-    statusElement.className = 'sync-online';
+    statusElement.className = 'sync-indicator sync-online';
     statusText.textContent = 'Online';
-    statusElement.classList.remove('hidden');
   }
 }
 
