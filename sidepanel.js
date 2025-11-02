@@ -118,9 +118,17 @@ function setupSlider() {
 
 function setupFilter() {
   const filterSelect = document.getElementById('filterSelect');
+  const statusFilter = document.getElementById('statusFilter'); // Add this to your HTML
+  
   filterSelect.addEventListener('change', () => {
     renderApplicationsList();
   });
+  
+  if (statusFilter) {
+    statusFilter.addEventListener('change', () => {
+      renderApplicationsList();
+    });
+  }
 }
 
 function setupFileUpload() {
@@ -547,26 +555,39 @@ function updateStats() {
 async function renderApplicationsList() {
   const jobs = currentJobs || [];
   const filterSelect = document.getElementById('filterSelect');
+  const statusFilter = document.getElementById('statusFilter');
   const filterValue = filterSelect.value;
+  const statusValue = statusFilter ? statusFilter.value : 'all';
   
   let filteredJobs = jobs;
   
+  // Status-based filtering
+  if (statusValue !== 'all') {
+    filteredJobs = filteredJobs.filter(job => {
+      const calculatedStatus = calculateJobStatus(job);
+      return calculatedStatus === statusValue;
+    });
+  }
+  
+  // Stage-based filtering (your existing logic)
   switch(filterValue) {
     case 'interviewed':
-      filteredJobs = jobs.filter(job => job.interviewed);
+      filteredJobs = filteredJobs.filter(job => job.interviewed);
       break;
     case 'offered':
-      filteredJobs = jobs.filter(job => job.offered);
+      filteredJobs = filteredJobs.filter(job => job.offered);
       break;
     case 'hired':
-      filteredJobs = jobs.filter(job => job.got_job);
+      filteredJobs = filteredJobs.filter(job => job.got_job);
       break;
     case 'pending':
-      filteredJobs = jobs.filter(job => !job.interviewed && !job.offered && !job.got_job);
+      filteredJobs = filteredJobs.filter(job => 
+        !job.interviewed && !job.offered && !job.got_job
+      );
       break;
     case 'all':
     default:
-      filteredJobs = jobs;
+      // No additional filtering needed
   }
 
   const applicationsList = document.getElementById('applicationsList');
@@ -588,11 +609,105 @@ async function renderApplicationsList() {
   });
 }
 
+// Add to your existing code
+const AUTO_CLOSE_DAYS = 14;
+const STATUS = {
+  ACTIVE: 'active',
+  CLOSED: 'closed',
+  EXPIRED: 'expired',
+  ARCHIVED: 'archived'
+};
+
+function calculateJobStatus(job) {
+  const appliedDate = new Date(job.date_applied);
+  const today = new Date();
+  const daysSinceApplication = Math.floor((today - appliedDate) / (1000 * 60 * 60 * 24));
+  
+  // If job is already marked as closed manually
+  if (job.manual_status === STATUS.CLOSED) return STATUS.CLOSED;
+  
+  // Auto-close after 4 days if no positive updates
+  if (daysSinceApplication > AUTO_CLOSE_DAYS && 
+      !job.interviewed && 
+      !job.offered && 
+      !job.got_job) {
+    return STATUS.EXPIRED;
+  }
+  
+  // Archive successful applications
+  if (job.got_job) return STATUS.ARCHIVED;
+  
+  return STATUS.ACTIVE;
+}
+
+function calculateDaysOld(dateString) {
+  const appliedDate = new Date(dateString);
+  const today = new Date();
+  return Math.floor((today - appliedDate) / (1000 * 60 * 60 * 24));
+}
+
+function getAutoCloseWarning(daysOld, autoCloseDays) {
+  if (daysOld >= autoCloseDays) {
+    return '⚠️ Auto-closed due to inactivity';
+  } else if (daysOld === autoCloseDays - 1) {
+    return '🔔 Will auto-close tomorrow';
+  } else if (daysOld === autoCloseDays - 2) {
+    return '💡 Consider following up';
+  }
+  return '';
+}
+
+async function updateJobStatus(jobId, newStatus) {
+  const session = await getSession();
+  if (!session) {
+    showAuthPage('login');
+    return;
+  }
+
+  // Update the job's manual status
+  if (isOnline()) {
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ 
+          manual_status: newStatus,
+          status_updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      await addToOfflineQueue('update', { 
+        id: jobId, 
+        update: { 
+          manual_status: newStatus,
+          status_updated_at: new Date().toISOString()
+        } 
+      });
+    }
+  } else {
+    await addToOfflineQueue('update', { 
+      id: jobId, 
+      update: { 
+        manual_status: newStatus,
+        status_updated_at: new Date().toISOString()
+      } 
+    });
+  }
+
+  await renderAll();
+}
+
 function createApplicationCard(job) {
   const appCard = document.createElement('div');
-  appCard.className = 'application-card';
+  const jobStatus = calculateJobStatus(job);
+  const daysOld = calculateDaysOld(job.date_applied);
   
-  // Calculate progress
+  appCard.className = `application-card status-${jobStatus}`;
+  appCard.setAttribute('data-status', jobStatus);
+  appCard.setAttribute('data-days-old', daysOld);
+  
   const progress = calculateProgress(job);
   const statusBadges = generateStatusBadges(job);
   
@@ -601,8 +716,33 @@ function createApplicationCard(job) {
       <div>
         <div class="app-company">${job.company}</div>
         <div class="app-role">${job.role}</div>
+        <div class="app-age ${daysOld > AUTO_CLOSE_DAYS ? 'age-warning' : ''}">
+          ${daysOld} day${daysOld !== 1 ? 's' : ''} old
+          ${daysOld > AUTO_CLOSE_DAYS ? ' ⚠️' : ''}
+        </div>
       </div>
       <div class="app-date">${formatDate(job.date_applied)}</div>
+    </div>
+    
+    <!-- Status Toggle -->
+    <div class="status-toggle-container">
+      <div class="status-toggle">
+        <button class="status-btn ${jobStatus === STATUS.ACTIVE ? 'active' : ''}" 
+                data-status="active" data-id="${job.id || job.local_id}">
+          🔄 Active
+        </button>
+        <button class="status-btn ${jobStatus === STATUS.CLOSED ? 'active' : ''}" 
+                data-status="closed" data-id="${job.id || job.local_id}">
+          ✅ Closed
+        </button>
+        <button class="status-btn ${jobStatus === STATUS.ARCHIVED ? 'active' : ''}" 
+                data-status="archived" data-id="${job.id || job.local_id}">
+          📁 Archive
+        </button>
+      </div>
+      <div class="auto-close-warning ${daysOld > AUTO_CLOSE_DAYS - 1 ? 'show' : ''}">
+        ${getAutoCloseWarning(daysOld, AUTO_CLOSE_DAYS)}
+      </div>
     </div>
     
     <!-- Follow-up Progress -->
@@ -620,6 +760,7 @@ function createApplicationCard(job) {
                class="follow-up-checkbox" 
                id="interviewed_${job.id || job.local_id}"
                ${job.interviewed ? 'checked' : ''}
+               ${jobStatus !== STATUS.ACTIVE ? 'disabled' : ''}
                data-id="${job.id || job.local_id}"
                data-field="interviewed">
         <label class="follow-up-label" for="interviewed_${job.id || job.local_id}">Interviewed</label>
@@ -630,6 +771,7 @@ function createApplicationCard(job) {
                class="follow-up-checkbox" 
                id="offered_${job.id || job.local_id}"
                ${job.offered ? 'checked' : ''}
+               ${jobStatus !== STATUS.ACTIVE ? 'disabled' : ''}
                data-id="${job.id || job.local_id}"
                data-field="offered">
         <label class="follow-up-label" for="offered_${job.id || job.local_id}">Got Offer</label>
@@ -640,6 +782,7 @@ function createApplicationCard(job) {
                class="follow-up-checkbox" 
                id="hired_${job.id || job.local_id}"
                ${job.got_job ? 'checked' : ''}
+               ${jobStatus !== STATUS.ACTIVE ? 'disabled' : ''}
                data-id="${job.id || job.local_id}"
                data-field="got_job">
         <label class="follow-up-label" for="hired_${job.id || job.local_id}">Hired</label>
@@ -650,6 +793,7 @@ function createApplicationCard(job) {
     <div class="app-card-footer">
       <div class="app-status">
         ${statusBadges}
+        <span class="status-badge status-${jobStatus}">${jobStatus.toUpperCase()}</span>
       </div>
       <div class="app-mood">${getMoodEmoji(job.mood)}</div>
     </div>
@@ -662,8 +806,31 @@ function createApplicationCard(job) {
       <button class="action-btn view-details" data-id="${job.id || job.local_id}">
         Details
       </button>
+      <button class="action-btn reopen-job ${jobStatus !== STATUS.ACTIVE ? 'show' : ''}" 
+              data-id="${job.id || job.local_id}">
+        Reopen
+      </button>
     </div>
   `;
+
+  // Add event listeners for status toggles
+  const statusButtons = appCard.querySelectorAll('.status-btn');
+  statusButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const status = this.getAttribute('data-status');
+      updateJobStatus(id, status);
+    });
+  });
+  
+  // Add event listener for reopen button
+  const reopenBtn = appCard.querySelector('.reopen-job');
+  if (reopenBtn) {
+    reopenBtn.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      updateJobStatus(id, STATUS.ACTIVE);
+    });
+  }
   
   // Add event listeners for checkboxes
   const checkboxes = appCard.querySelectorAll('.follow-up-checkbox');
@@ -825,19 +992,75 @@ function renderAnalytics() {
     return;
   }
 
-  document.getElementById('jobsPerDayChart').style.display = 'block';
-  
-  // Calculate average expectation
-  const avgExp = jobs.reduce((sum, job) => sum + (job.application_expectation || 3), 0) / jobs.length;
-  avgExpectation.textContent = avgExp.toFixed(1);
+  // Calculate status distribution
+  const statusCounts = {
+    active: 0,
+    closed: 0,
+    expired: 0,
+    archived: 0
+  };
 
-  // Calculate success rate (percentage of applications that led to interviews)
-  const successCount = jobs.filter(job => job.interviewed).length;
-  const successPercentage = jobs.length > 0 ? (successCount / jobs.length * 100).toFixed(1) : 0;
-  successRate.textContent = `${successPercentage}%`;
+  jobs.forEach(job => {
+    const status = calculateJobStatus(job);
+    statusCounts[status]++;
+  });
+
+  // Update your analytics with status information
+  renderStatusChart(statusCounts);
+  
+  // Calculate success rate including closed jobs
+  const totalClosedJobs = statusCounts.closed + statusCounts.expired + statusCounts.archived;
+  const successfulClosures = jobs.filter(job => 
+    (job.got_job || job.offered) && 
+    ['closed', 'archived'].includes(calculateJobStatus(job))
+  ).length;
+  
+  const closureSuccessRate = totalClosedJobs > 0 ? 
+    (successfulClosures / totalClosedJobs * 100).toFixed(1) : 0;
+    
+  successRate.textContent = `${closureSuccessRate}%`;
 
   renderJobsPerDayChart();
 }
+
+function renderStatusChart(statusCounts) {
+  const ctx = document.getElementById('statusChart').getContext('2d');
+  
+  // Destroy existing chart if it exists
+  if (window.statusChartInstance) {
+    window.statusChartInstance.destroy();
+  }
+  
+  window.statusChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Active', 'Manually Closed', 'Auto-Closed', 'Archived'],
+      datasets: [{
+        data: [
+          statusCounts.active,
+          statusCounts.closed,
+          statusCounts.expired,
+          statusCounts.archived
+        ],
+        backgroundColor: [
+          '#e67600', // Active - orange
+          '#22c55e', // Closed - green
+          '#ef4444', // Expired - red
+          '#6b7280'  // Archived - gray
+        ]
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom'
+        }
+      }
+    }
+  });
+}
+
 
 function renderJobsPerDayChart() {
   const jobs = currentJobs || [];

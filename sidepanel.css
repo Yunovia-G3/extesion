@@ -1174,3 +1174,77 @@ body, .body-container {
     font-size: 0.9rem;
   }
 }
+
+/* Status-based styling */
+.application-card.status-expired {
+  opacity: 0.7;
+  border-left: 4px solid #ef4444;
+}
+
+.application-card.status-closed {
+  border-left: 4px solid #22c55e;
+}
+
+.application-card.status-archived {
+  background: #f8f9fa;
+  border-left: 4px solid #6b7280;
+}
+
+.application-card.status-active {
+  border-left: 4px solid #e67600;
+}
+
+/* Status badges */
+.status-badge.status-active { background: #e67600; }
+.status-badge.status-closed { background: #22c55e; }
+.status-badge.status-expired { background: #ef4444; }
+.status-badge.status-archived { background: #6b7280; }
+
+/* Status toggle */
+.status-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.status-btn {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-btn.active {
+  background: #e67600;
+  color: white;
+  border-color: #e67600;
+}
+
+/* Age warning */
+.app-age.age-warning {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.auto-close-warning {
+  font-size: 11px;
+  color: #ef4444;
+  display: none;
+}
+
+.auto-close-warning.show {
+  display: block;
+}
+
+/* Reopen button */
+.reopen-job {
+  display: none;
+}
+
+.reopen-job.show {
+  display: inline-block;
+}
