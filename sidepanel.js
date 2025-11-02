@@ -160,7 +160,7 @@ function setupFileUpload() {
 
 function showFileName(file) {
   const fileNameDisplay = document.getElementById('fileNameDisplay');
-  fileNameDisplay.textContent = `📄 ${file.name}`;
+  fileNameDisplay.textContent = `${file.name}`;
   fileNameDisplay.style.display = 'block';
 }
 
@@ -248,6 +248,20 @@ function setupAuthEventListeners() {
     e.preventDefault();
     const email = document.getElementById('signupEmail').value;
     const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const agreeTerms = document.getElementById('agreeTerms').checked;
+
+    // Validate password match
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
+
+    // Validate terms agreement
+    if (!agreeTerms) {
+      alert('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
 
     const { data, error } = await supabase.auth.signUp({ email, password });
 
@@ -270,6 +284,35 @@ function setupAuthEventListeners() {
   document.getElementById('openAppBtn').addEventListener('click', () => {
     window.open('https://job-dash-ashy.vercel.app/', '_blank');
   });
+
+  // Setup password toggles
+  setupPasswordToggles();
+}
+
+function setupPasswordToggles() {
+  const togglePassword = (toggleId, inputId) => {
+    const toggle = document.getElementById(toggleId);
+    const input = document.getElementById(inputId);
+    
+    if (toggle && input) {
+      toggle.addEventListener('click', () => {
+        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+        input.setAttribute('type', type);
+        
+        // Update icon
+        const icon = toggle.querySelector('svg');
+        if (type === 'text') {
+          icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+        } else {
+          icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+        }
+      });
+    }
+  };
+
+  togglePassword('loginPasswordToggle', 'loginPassword');
+  togglePassword('signupPasswordToggle', 'signupPassword');
+  togglePassword('confirmPasswordToggle', 'confirmPassword');
 }
 
 function showAuthPage(page) {
@@ -405,10 +448,16 @@ async function handleOfflineSubmission(formData) {
 
 async function fetchJobs() {
   const session = await getSession();
-  if (!session) return [];
+  if (!session) {
+    console.log('No session found, returning empty jobs array');
+    return [];
+  }
 
   let remoteJobs = [];
   const localJobs = await getLocalJobs();
+
+  console.log('Fetching jobs for user:', session.user.id);
+  console.log('Local jobs count:', localJobs.length);
 
   if (isOnline()) {
     try {
@@ -418,16 +467,28 @@ async function fetchJobs() {
         .eq('user_id', session.user.id)
         .order('date_applied', { ascending: false });
 
-      if (!error) remoteJobs = data || [];
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      remoteJobs = data || [];
+      console.log('Remote jobs fetched:', remoteJobs.length);
+      
     } catch (error) {
       console.error('Error fetching remote jobs:', error);
     }
   }
 
-  const allJobs = [...remoteJobs, ...localJobs].sort((a, b) => 
+  // Filter local jobs to only include current user's jobs
+  const userLocalJobs = localJobs.filter(job => job.user_id === session.user.id);
+  console.log('User local jobs:', userLocalJobs.length);
+
+  const allJobs = [...remoteJobs, ...userLocalJobs].sort((a, b) => 
     new Date(b.date_applied) - new Date(a.date_applied)
   );
   
+  console.log('Total jobs after merge:', allJobs.length);
   currentJobs = allJobs;
   return allJobs;
 }
@@ -864,16 +925,27 @@ function formatChartDate(dateString) {
 // ================= STORAGE FUNCTIONS =================
 async function saveToLocal(jobData) {
   const localJobs = await getLocalJobs();
-  localJobs.push({
+  // Make sure we're saving with the correct user_id
+  const jobWithUser = {
     ...jobData,
-    local_id: 'local_' + Date.now()
-  });
+    local_id: 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+  };
+  
+  localJobs.push(jobWithUser);
   await chrome.storage.local.set({ [LOCAL_JOBS_KEY]: localJobs });
+  console.log('Saved job locally:', jobWithUser.local_id);
 }
 
 async function getLocalJobs() {
-  const result = await chrome.storage.local.get(LOCAL_JOBS_KEY);
-  return result[LOCAL_JOBS_KEY] || [];
+  try {
+    const result = await chrome.storage.local.get(LOCAL_JOBS_KEY);
+    const jobs = result[LOCAL_JOBS_KEY] || [];
+    console.log('Retrieved local jobs:', jobs.length);
+    return jobs;
+  } catch (error) {
+    console.error('Error getting local jobs:', error);
+    return [];
+  }
 }
 
 async function addToOfflineQueue(operation, data) {
